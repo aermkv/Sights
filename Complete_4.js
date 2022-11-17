@@ -1,4 +1,4 @@
-//tokenData.hash = '0xe6e627011fe2dcc4d7e0b0b74876095fb46f90e668e2aeec054ed1e94064f50d'
+//tokenData.hash = '0x0b7bf0834d0faa15bc65a2baa045a146990335587ea023f1d154c9b15c19d52f'
 const hashPairs = [];
 for (let j = 0; j < 32; j++) {
   hashPairs.push(tokenData.hash.slice(2 + (j * 2), 4 + (j * 2)));
@@ -187,9 +187,13 @@ let rfd_pos = [];
 let rfd_pos2 = [];
 let dotsToFill = [];
 
+let pointsToPaint = [];
+let shuffled_pTp = [];
+
 let twilight_dots = [];
 
 let style;
+let time;
 
 //const skies = [linearSky,lumSky,quilt]
 
@@ -217,10 +221,11 @@ function setup() {
   p1.translate(width/2,height/2)
   p2.translate(width/2,height/2)
 
-  //const style = chStyle()
-  style = 'geom'
+  style = chStyle()
+  console.log(style)
+  //style = 'geom'
 
-  const time = chTime()
+  time = chTime()
   //const time = 'night'
 
   const pal = chPal(newPals,style)
@@ -236,7 +241,14 @@ function setup() {
   //console.log(`${chooseSky}`)
 
   renderSanGm(pal, horizon, quilt, style, time)
+  drawTwilightSetup(skyBuff,twilight_dots,style)
+  if (style === 'orig') {
+    pushToPaint(p2,-w(.5),w(.5),-h(.5),h(.5),map(frameCount,0,400,w(.03),w(.0005)),0,w(.005),w(.015),HARD_LIGHT,15000)
+    pushToPaint(p2,-w(.5),w(.5),-h(.5),h(.5),0,map(frameCount,0,400,w(.05),w(.001)),w(.005),w(.015),SOFT_LIGHT,15000)
+  }
   console.log(millis())
+  shuffled_pTp = shuffleArray(pointsToPaint)
+  console.log(pointsToPaint.length)
   //renderAmst(pal, horizon, chooseSky)
   //renderNyc(pal, horizon, chooseSky)
   //renderCqtr(pal, horizon, chooseSky)
@@ -260,10 +272,15 @@ function draw() {
   
   //fillInDots()
   //fillInDots2()
-  fillInDots()
   //if (frameCount < 500) {
-    drawTwilight(skyBuff,twilight_dots,style)
+  //drawTwilight(skyBuff,twilight_dots,style)
   //}
+  if (style === 'orig') {
+    //oilPaint_fine(p2,-w(.5),w(.5),-h(.5),h(.5),map(frameCount,0,200,w(.015),w(.0005)),0,w(.005),w(.015),HARD_LIGHT,300)
+    //oilPaint_fine(p2,-w(.5),w(.5),-h(.5),h(.5),0,map(frameCount,0,200,w(.03),w(.001)),w(.005),w(.015),BLEND,300)
+  }
+  fillInDots()
+  oilPaint_fine_setup(p2,shuffled_pTp,400)
 }
 
 
@@ -292,7 +309,7 @@ function chTime() {
 }
 
 function chStyle() {
-  let styles = ['graphic','painterly']
+  let styles = ['neat','orig','geom']
   let style = styles[floor(rnd()*styles.length)]
   return style
 }
@@ -357,7 +374,7 @@ function makeSections(numSecs,left,right,minDiv,maxDiv) {
   }
   sectionWidths.push(rightEnd)
   let sections = []
-  for (let i = 0; i < sectionWidths.length-1; i++) {
+  for (let i = 0; i < sectionWidths.length; i++) {
     const begin = sections[i-1] ? sections[i-1][1] : sectionWidths[i];
     const end = sectionWidths[i+2] ? begin + sectionWidths[i+1] : sectionWidths[i+1]// Or sectionsWidths[i]?
     sections.push([begin,end])
@@ -370,7 +387,7 @@ function shuffleArray(array) {
       const j = floor(rnd() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
   }
-  //return array
+  return array
 }
 
 function dotLine(buff,x1,y1,x2,y2,thickness,weight,density,col) {
@@ -553,7 +570,7 @@ function fillOutDots(sourceArray) {
   }
 }
 
-function pstr4(buff,x1,y1,x2,y2,thickness,weight,density,col,lenDiv) {
+function pstr4(buff,x1,y1,x2,y2,thickness,weight,density,col,lenDiv,bMode) {
   let num = (thickness/w(.0005)) * density;
   let v1 = createVector(x1,y1)
   let v2 = createVector(x2,y2)
@@ -563,6 +580,8 @@ function pstr4(buff,x1,y1,x2,y2,thickness,weight,density,col,lenDiv) {
   if (y2-y1 > x2-x1) {dir = 'v'}
   
   let strLength = dist(x1,y1,x2,y2)
+  let thisBlend = bMode ? bMode : BLEND
+  buff.blendMode(thisBlend)
   
   xStep = 0
   yStep = 0
@@ -719,9 +738,10 @@ function fillInDots() {
   }
 }
 
-function areaLinear(buff,numSecs,tl,tr,br,bl,pal) {
+function areaLinear(buff,numSecs,tl,tr,br,bl,pal,minSpl,maxSpl,type) { // DESCRIBE type/STYLE
   buff.push()
   buff.blendMode(SOFT_LIGHT)
+  if (type === 'nightsky'){buff.blendMode(BURN)}
   let lerpCounter = 0
   for (let i = 0; i < numSecs; i++) {
     let col = chCol(pal)
@@ -732,7 +752,9 @@ function areaLinear(buff,numSecs,tl,tr,br,bl,pal) {
     let tvr = p5.Vector.lerp(tr,br,lerpVal1)
     let bvl = p5.Vector.lerp(tl,bl,lerpVal2)
     let bvr = p5.Vector.lerp(tr,br,lerpVal2)
-    let t_split = rnd(.3,.7)
+    //let t_split = rnd(.3,.7)
+    let t_split = rnd(minSpl,maxSpl)
+    //let xoff
     let dir = rnd()
     if (dir < .5) {
       let lpt = p5.Vector.lerp(tvl,tvr,t_split)
@@ -741,11 +763,14 @@ function areaLinear(buff,numSecs,tl,tr,br,bl,pal) {
         let x2 = map(x,lpt.x,tvr.x,lpb.x,bvr.x)
         let y1 = map(x,lpt.x,tvr.x,lpt.y,tvr.y)
         let y2 = map(x,lpt.x,tvr.x,lpb.y,bvr.y)
-        let colOffset = rnd(-30,30)
+        let colOffset = rnd(-15,15)
+        //let colOffset = 15 * noise(xoff)
         let nCol = color(col[0]+colOffset,col[1]+colOffset,col[2]+colOffset)
+        if (type === 'nightsky'){nCol.setAlpha(60)}
         buff.stroke(nCol)
         buff.strokeWeight(w(.001))
         buff.line(x,y1,x2,y2)
+        //xoff += .1
       }
     }else{
       let rpt = p5.Vector.lerp(tvl,tvr,t_split)
@@ -754,14 +779,128 @@ function areaLinear(buff,numSecs,tl,tr,br,bl,pal) {
         let x2 = map(x,tvl.x,rpt.x,bvl.x,rpb.x)
         let y1 = map(x,tvl.x,rpt.x,tvl.y,rpt.y)
         let y2 = map(x,tvl.x,rpt.x,bvl.y,rpb.y)
-        let colOffset = rnd(-30,30)
+        let colOffset = rnd(-15,15)
+        //let colOffset = 30 * noise(xoff)
         let nCol = color(col[0]+colOffset,col[1]+colOffset,col[2]+colOffset)
+        if (type === 'nightsky'){nCol.setAlpha(60)}
+        //console.log(nCol)
         buff.stroke(nCol)
         buff.strokeWeight(w(.001))
         buff.line(x,y1,x2,y2)
+        //xoff += .1
       }
     }
     lerpCounter += addLerp
+  }
+  buff.pop()
+}
+
+function skyStrokes(buff,pal,horizon,bMode,style) {
+  buff.push()
+  buff.translate(width/2,height/2)
+  buff.blendMode(bMode)
+  let num_lines = 20
+  if (style === 'geom') {num_lines = 60}
+  let x_break_L = rnd(0,w(.25))
+  let x_break_R = rnd(-w(.25),0)
+  for (let i = 0; i < num_lines; i++) {
+    let dir = rnd()
+    if (dir < .5) {
+      y1 = rnd(-h(.5),horizon)
+      y2 = y1 + rnd(-h(.01),h(.01))
+      x1 = rnd(-w(.5),w(.5))
+      x2 = rnd(-w(.5),w(.5))
+    }else{
+      y1 = rnd(-h(.5),horizon)
+      y2 = rnd(-h(.5),horizon)
+      x1 = rnd(-w(.5),w(.5))
+      x2 = x1 + rnd(-w(.01),w(.01))
+    }
+    strCol = chCol(pal.sky)
+    strThick = rnd(w(.002),w(.03))
+    if (style === 'orig') {
+      pstr4(buff,x1,-h(.5),x2,horizon,strThick,1,strCol,rnd(5,25))
+      pstr4(buff,-w(.5),y1,x_break_L,y2,strThick,1,strCol,rnd(5,25))
+      pstr4(buff,x_break_R,y1,w(.5),y2,strThick,1,strCol,rnd(5,25))
+    }else if (style === 'geom') {
+      let r = strCol[0]
+      let g = strCol[1]
+      let b = strCol[2]
+      let start = rnd(30)
+      let numDots = rnd(100,500)
+      rfd_pos.push([x1,y1,x2,y2,numDots,r,g,b,start,buff])
+    }
+  }
+  buff.pop()
+}
+
+function oilPaint_fine(buff,xMin,xMax,yMin,yMax,maxL,maxH,minTh,maxTh,blendType,fC) {
+  buff.push()
+  buff.translate(-width/2,-height/2)
+  if (frameCount < fC) {
+    let numDaubs = floor(map(dist(0,yMin,0,yMax),h(.15),h(.75),5,20));
+    for (let i = 0; i < numDaubs; i++) {
+      let xD = rnd(maxL)
+      let yD = rnd(maxH)
+      let x1 = rnd(xMin,xMax) + width/2
+      let y1 = rnd(yMin,yMax) + height/2
+      let x2 = x1 + rnd(-xD,xD)
+      let y2 = y1 + rnd(-yD,yD)
+      strokeLength = rnd(w(.01))
+      strokeColor = color(get(x1,y1))
+      strokeThickness = rnd(minTh,maxTh) // was rnd(w(.002),w(.015))
+      //if (y1 > horizon+height/2) {strokeThickness = rnd(w(.002),w(.015)) * map(dist(0,horizon+height/2,0,y1),0,h(.65),1,8)}
+      if (xD > yD){dir = 'h'}
+      if (yD > xD){dir = 'v'}
+      buff.blendMode(blendType)
+      strokeColor.setAlpha(rnd(100))
+      pstr4(buff,x1,y1,x2,y2,strokeThickness,strokeThickness/2,.5,strokeColor,20)
+      //pointsToPaint.push(buff,x1,y1,x2,y2,strokeThickness,strokeThickness/2,.5,strokeColor,20)
+      //blobStr_live(buff, x1, y1, x2, y2, strokeLength*3.5, strokeColor[0], strokeColor[1], strokeColor[2], 15, frameCount)
+    }
+  }
+  buff.pop()
+}
+
+function pushToPaint(buff, xMin, xMax, yMin, yMax, maxLength, maxHeight, minTh, maxTh, bMode, number) {
+  for (let i = 0; i < number; i++) {
+    let xD = rnd(maxLength)
+    let yD = rnd(maxHeight)
+    let x1 = rnd(xMin,xMax) + width/2
+    let y1 = rnd(yMin,yMax) + height/2
+    let x2 = x1 + rnd(-xD,xD)
+    let y2 = y1 + rnd(-yD,yD)
+    strokeLength = rnd(w(.01))
+    strokeColor = color(get(x1,y1))
+    strokeThickness = rnd(minTh,maxTh)
+    weight = strokeThickness/2
+    density = .5
+    lenDiv = 20
+    strokeColor.setAlpha(rnd(100))
+    pointsToPaint.push({buff,x1,y1,x2,y2,strokeThickness,weight,density,strokeColor,bMode,lenDiv})
+  }
+}
+
+function oilPaint_fine_setup(buff,arr,max_fC) {
+  buff.push()
+  //buff.translate(-width/2,-height/2)
+  let averageNum = floor(arr.length/max_fC)
+  //for (let i = 0; i < max_fC; i++) {
+  if (frameCount < max_fC) {
+    //let numToDraw = floor(map(i,0,max_fC,averageNum*5,averageNum/5))
+    for (let j = frameCount * averageNum; j < frameCount * averageNum + averageNum; j++) {
+      let thisCol = color(get(arr[j].x1, arr[j].y1))
+      thisCol.setAlpha(rnd(65,165))
+      //blendMode(arr[j].bMode)
+      //pstr4(arr[j].buff,arr[j].x1 - width/2,arr[j].y1 - height/2, arr[j].x2 - w(.5),arr[j].y2 - h(.5),arr[j].strokeThickness,arr[j].weight,arr[j].density,thisCol,arr[j].lenDiv,arr[j].bMode)
+      buff.noStroke()
+      buff.fill(thisCol)
+      buff.ellipse(arr[j].x1 - width/2, arr[j].y1 - height/2 - arr[j].strokeThickness/3, arr[j].strokeThickness/3)
+      buff.ellipse(arr[j].x1 - width/2, arr[j].y1 - height/2, arr[j].strokeThickness/2)
+      buff.ellipse(arr[j].x1 - width/2, arr[j].y1 - height/2 + arr[j].strokeThickness/3, arr[j].strokeThickness/3)
+      buff.ellipse(arr[j].x1 - width/2, arr[j].y1 - height/2 + arr[j].strokeThickness/2, arr[j].strokeThickness/4)
+    }
+  //}
   }
   buff.pop()
 }
@@ -778,6 +917,17 @@ function quilt(buff, style, time, horizon, pal, features) {
   let xPos = [-w(.5)]
   let types = []
   let type;
+  let areaLinearType = 'none'
+  if (style === 'geom') {
+    let stl = createVector(-w(.5),-h(.5))
+    let str = createVector(w(.5),-h(.5))
+    let sbr = createVector(w(.5),horizon)
+    let sbl = createVector(-w(.5),horizon)
+    let numSecs = rnd(7,15)
+    if (time === 'night'){areaLinearType = 'nightsky'}
+
+    areaLinear(buff,numSecs,stl,str,sbr,sbl,pal.sky,-2,2,areaLinearType)
+  }
   let upSections = rnd(8,16);
   let upSections_H = rnd(6,24);
   let avgSH = dist(0,-h(.5),0,horizon)/upSections
@@ -830,7 +980,7 @@ function quilt(buff, style, time, horizon, pal, features) {
             //origCol.setAlpha(80)
             pstr4(buff, x, y1, x, y2, w(.005), w(.001), .5, [origCol[0]/2,origCol[1]/2,origCol[2]/2], rnd(10,50)) 
             pstr4(buff, x, y1, x, y2, w(.005), w(.001), .5, origCol, rnd(10,50)) 
-          }else if (style === 'geom') {
+          }/*else if (style === 'geom') {
             buff.push()
             //buff.blendMode(SOFT_LIGHT)
             geomCol = color(col)
@@ -839,11 +989,11 @@ function quilt(buff, style, time, horizon, pal, features) {
             buff.line(x, y1 - yOffset, x, y2 + yOffset)
             buff.pop()
             xoff += .05
-          }
+          }*/
         }
       }
 
-      if (style !== 'orig') {
+      if (style === 'orig') {
         let projection = rnd()
         if (projection < .05) {
           pstr4(buff, x1, y1, x1, y1 + rnd(w(.25)), w(.005), w(.001), .8, col, rnd(10,50)) 
@@ -854,7 +1004,17 @@ function quilt(buff, style, time, horizon, pal, features) {
         }else if (projection < .15) {
           pstr4(buff, x1 - rnd(w(.25)), y1, x1 + rnd(w(.25)), y1, w(.005), w(.001), .8, col, rnd(10,50)) 
         }
-      }else if (style === 'geom') {
+      }
+      if (style === 'geom') {
+        let tl = createVector(x1,y1)
+        let tr = createVector(x2,y1)
+        let br = createVector(x2,y2)
+        let bl = createVector(x1,y2)
+        let numSecs = rnd(3,10)
+        areaLinear(buff,numSecs,tl,tr,br,bl,pal.sky,-2,2,areaLinearType)
+      }
+      
+      /*else if (style === 'geom') {
         buff.push()
         buff.stroke(col)
         let strW = rnd(w(.002),w(.005))
@@ -870,7 +1030,7 @@ function quilt(buff, style, time, horizon, pal, features) {
           buff.line(x1 - rnd(w(.25)), y1, x1 + rnd(w(.25)), y1) 
         }
         buff.pop()
-      }
+      }*/
     } // ADD HORIZONTAL OPTION
   }
   buff.pop()
@@ -944,6 +1104,47 @@ function drawTwilight(buff,ptsArray,style) {
       }
     }
   }
+  buff.pop()
+}
+
+function drawTwilightSetup(buff,ptsArray,style) {
+  buff.push()
+  //shuffleArray(ptsArray)
+  //for (let i = 0; i < ptsArray.length/10; i++) {
+  //if (frameCount < ptsArray.length/50) { // /10 for geom
+    for (let i = frameCount; i < ptsArray.length; i ++) {
+      //buff.ellipse(ptsArray[i].x,ptsArray[i].yPos,w(.005))
+      if (style === 'orig') {
+        buff.noStroke()
+        buff.fill(ptsArray[i].col)
+        buff.blendMode(HARD_LIGHT)
+        buff.rect(ptsArray[i].x,ptsArray[i].yPos,ptsArray[i].xS,ptsArray[i].yS)
+      }else if (style === 'geom') {
+        let xPos = ptsArray[i].x
+        let yPos = ptsArray[i].y
+        let xW = rnd(w(.1),w(.35))
+        let yH = rnd(h(.003),h(.01))
+        let xoff = 0
+        for (let x = xPos - xW/2; x < x + xW/2; x += w(.001)) {
+          let y1 = yPos - yH/2 - yH/5 * noise(xoff)
+          let y2 = yPos + yH/2 - yH/5 * noise(xoff)
+          let lineAlpha = 60*noise(xoff)
+          let lineCol = ptsArray[i].col
+          console.log(lineCol)
+          if (x < xPos - xW/2.5){
+            lineAlpha = 60*noise(xoff) * map(x,x-xW/2,x-xW/2.5,0,1)
+          }else if (x < xPos + xW/2.5) {
+            lineAlpha = 60*noise(xoff) * map(x,x+xW/2.5,x+xW/2,1,0)
+          }
+          lineCol.setAlpha(lineAlpha)
+          buff.stroke(lineCol)
+          buff.strokeWeight(w(.001))
+          buff.line(x,y1,x,y2)
+          xoff += .01
+        }
+      }
+    }
+  //}
   buff.pop()
 }
 
@@ -1022,7 +1223,9 @@ function cypress(buff,pal,xTr,y,xW,yH,style,time) {
       pstr4(buff, x + rnd(-xW/8,xW/8), yBot, xMid, yMid, trTh*3, trTh/3, .3, dCol, 25)
       pstr4(buff, xMid + rnd(-xW/8,xW/8), yMid, xTop, yTop, trTh*3, trTh/3, .3, dCol, 25)
     }
-    randDotFills_bld(p1,p1,2,xL,xR,base,top,'v',30,60)
+    //randDotFills_bld(p1,p1,2,xL,xR,base,top,'v',30,60)
+    //oilPaint_fine(buff,xL,xR,y,top,w(.01),h(.01),w(.003),w(.006),OVERLAY,100)
+    pushToPaint(buff, xL, xR, y, top, w(.01), h(.01), w(.003), w(.006), OVERLAY, 25)
   }
 }
 
@@ -1136,6 +1339,22 @@ function sanGmHouse1(buff, style, pal, xM, yB, xW, yH, dir, time, type) {
       p1.strokeWeight(strW)
       p1.line(x, y, x, yB)
       buff.pop()
+      if (type === 'tower') {
+        wPos = lerp(wrl,wrr,.5)
+        if (x > wPos - xW/8 && x < wPos + xW/8) {
+          p1.stroke(col[0]/4, col[1]/4, col[2]/4)
+          p1.line(x, ywt, x, ywb)
+        }
+      }else{
+        for (let i = 1; i < numWindows; i++) {
+          wPos = lerp(wrl,wrr,.2*i)
+          if (x > wPos - xW/32 && x < wPos + xW/32) {
+            p1.stroke(col[0]/4, col[1]/4, col[2]/4)
+            p1.line(x, ywt, x, ywb)
+            p1.line(x, ywt + yH/5, x, ywb + yH/5)
+          }
+        }
+      }
     }
   }
 
@@ -1185,8 +1404,8 @@ function sanGmHouse1(buff, style, pal, xM, yB, xW, yH, dir, time, type) {
       let vec_bmid = createVector(x3,yB)
       let vec_br = createVector(x2,yB)
       let numSecs = rnd(6,15)
-      areaLinear(buff,numSecs,vec_tl,vec_mid,vec_bmid,vec_bl,pal.bld) 
-      areaLinear(buff,numSecs,vec_mid,vec_tr,vec_br,vec_bmid,pal.bld) 
+      areaLinear(buff,numSecs,vec_tl,vec_mid,vec_bmid,vec_bl,pal.bld,.1,.9) 
+      areaLinear(buff,numSecs,vec_mid,vec_tr,vec_br,vec_bmid,pal.bld,.4,.6) 
     }
     if (overline < .3) {
       buff.blendMode(HARD_LIGHT)
@@ -1206,11 +1425,15 @@ function sanGmHouse1(buff, style, pal, xM, yB, xW, yH, dir, time, type) {
     }else if (overline < .7) {
       p2.push()
       p2.blendMode(SOFT_LIGHT)
-      p2.strokeCap(SQUARE)
+      //p2.strokeCap(SQUARE)
       p2.stroke(col)
+      buff.stroke(col)
       let strW = rnd(w(.001),w(.005))
       p2.strokeWeight(strW)
+      buff.strokeWeight(strW)
       p2.line(x1, ytl, x1, h(.5))
+      buff.line(x3,yB + rnd(yH*2.5),x3,yth)
+      buff.line(x1,ytl,x3,yth)
       p2.pop()
     }else if (overline < .9 && type !== 'tower') {
       buff.stroke(col)
@@ -1221,6 +1444,7 @@ function sanGmHouse1(buff, style, pal, xM, yB, xW, yH, dir, time, type) {
       let lerpVal = rnd(1.1,3)
       let vExt = p5.Vector.lerp(v1,v2,lerpVal)
       buff.line(x1,ytl,vExt.x,vExt.y)
+      buff.line(x1,yB + rnd(yH*1.5),x1,ytl)
     }else if (overline < 1 && type !== 'tower') {
       buff.stroke(col)
       let strW = rnd(w(.001),w(.004))
@@ -1230,6 +1454,7 @@ function sanGmHouse1(buff, style, pal, xM, yB, xW, yH, dir, time, type) {
       let lerpVal = rnd(1.1,10)
       let vExt = p5.Vector.lerp(v2,v1,lerpVal)
       buff.line(x3,yth,vExt.x,vExt.y)
+      buff.line(x3,yB + rnd(yH*1.5),x3,yth)
     }
     buff.pop()
   }
@@ -1350,9 +1575,15 @@ function sanGmHouse1(buff, style, pal, xM, yB, xW, yH, dir, time, type) {
       pstr4(p2, x3, ytl, x3, yB, strW, strW/3, 1, strCol, random(25,60))
     }
   }*/
-  if (style === 'orig') {
+  if (style === 'geom') {
     randDotFills_bld(p1,p1,4,x1,x2,yB,yB - yH - yH/6,'h',0,30)
     randDotFills_bld(p1,p1,4,x1,x2,yB,yB - yH - yH/6,'v',30,60)
+  }else if (style === 'orig') {
+    //pushToPaint(p2,x1,x2,yB,yB - yH - yH/6,(w(.001)),w(.005),w(.005),w(.015),HARD_LIGHT,60)
+    //pushToPaint(p2,x1,x2,yB,yB - yH - yH/6,(w(.001)),w(.005),w(.005),w(.015),BLEND,30)
+    // IF POINTILLISM: 
+    pushToPaint(p2,x1,x2,yB,yB - yH - yH/6,(w(.001)),w(.005),w(.001),w(.005),HARD_LIGHT,60)
+    pushToPaint(p2,x1,x2,yB,yB - yH - yH/6,(w(.001)),w(.005),w(.001),w(.005),BLEND,30)
   }
 }
 
@@ -1464,11 +1695,13 @@ function sanGmTerr(buff, style, horizon, pal, style, time) {
         if (overline < .1) {
           buff.line(tl.x, tl.y, tr.x, tr.y)
           let numSecs = rnd(6,15)
-          areaLinear(buff,numSecs,tl,tr,br,bl,pal.veg) 
+          areaLinear(buff,numSecs,tl,tr,br,bl,pal.veg,.3,.7) 
         }else if (overline < .3) {
           let lerpVal = rnd(.8,1.25)
           let newBl = p5.Vector.lerp(bl,tl,lerpVal)
           buff.line(bl.x, bl.y, newBl.x, newBl.y)
+          let numSecs = rnd(6,15)
+          areaLinear(buff,numSecs,tl,tr,br,bl,pal.veg,.3,.7) 
         }else if (overline < .5) {
           let lerpVal = rnd(.8,1.25)
           let newBr = p5.Vector.lerp(br,tr,lerpVal)
@@ -1483,7 +1716,6 @@ function sanGmTerr(buff, style, horizon, pal, style, time) {
             let v1 = p5.Vector.lerp(tl,bl,lVal)
             let v2 = p5.Vector.lerp(tr,br,lVal)
             dVal = rnd(.5,1.25)
-            console.log(v1.x,v1.y)
             let strW = rnd(w(.003))
             buff.strokeWeight(strW)
             buff.stroke([ovlCol[0]+colOffset,ovlCol[1]+colOffset,ovlCol[2]+colOffset])
@@ -1499,7 +1731,7 @@ function sanGmTerr(buff, style, horizon, pal, style, time) {
           }
         }else if (overline < 1) {
           let numSecs = rnd(6,15)
-          areaLinear(buff,numSecs,tl,tr,br,bl,pal.veg) 
+          areaLinear(buff,numSecs,tl,tr,br,bl,pal.veg,.1,.9) 
         }
         buff.pop()
       }
@@ -1708,8 +1940,12 @@ function renderSanGm(pal, horizon, sky, style, time) {
     //randDotFills(p1,grid,'v',40,80)
     //randDotFills(p2,p1,'h',80,120)
     //randDotFills(p2,p1,'v',120,160)
-    randDotFills(grid,p1,'h',0,30)
+
+    /*randDotFills(grid,p1,'h',0,30)
     randDotFills(p2,p1,'h',0,30)
-    randDotFills(p2,p1,'v',30,60)
+    randDotFills(p2,p1,'v',30,60)*/
+  }else if (style === 'geom') {
+    //randDotFills(p1,skyBuff,'h',0,30)
+    skyStrokes(skyBuff,pal,horizon,HARD_LIGHT,style)
   }
 }
